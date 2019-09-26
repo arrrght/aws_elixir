@@ -1,3 +1,0 @@
-<div class="phx-hero">
-  <h2>Hello world, <%= @messenger %>!</h2>
-</div>

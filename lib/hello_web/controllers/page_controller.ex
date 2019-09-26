@@ -1,5 +1,6 @@
 defmodule HelloWeb.PageController do
   use HelloWeb, :controller
+  def a ||| b, do: Map.merge(a, b) # le bayan
 
   def md_parse([], res), do: res
   def md_parse([str|rest], arr) do
@@ -9,7 +10,6 @@ defmodule HelloWeb.PageController do
       Regex.match?(~r/^\* \[/, str)   -> Regex.named_captures(~r/^\* \[(?<rep>.+)\]\((?<url>.+)\) - (?<desc>.+$)/, str)
       true -> %{}
     end
-    #IO.inspect result
     md_parse(rest, [result | arr])
   end
     
@@ -17,30 +17,59 @@ defmodule HelloWeb.PageController do
   def clean_up([], some, _), do: some
   def clean_up([h|t], some, cur) when h == %{}, do: clean_up(t, some, cur)
   def clean_up([head|tail], res, cur) do
-      if Map.has_key?(head, "grp_name") || Map.has_key?(head, "grp_desc") do
-        IO.inspect head
-        clean_up(tail, res, Map.merge(head,cur))
-      else
-        clean_up(tail, [Map.merge(head,cur)|res], cur)
+    if Map.has_key?(head, "grp_name") || Map.has_key?(head, "grp_desc") do
+      IO.inspect head
+      clean_up(tail, res, head ||| cur)
+    else
+      clean_up(tail, [head ||| cur | res], cur)
+    end
+  end
+
+  def map_to_ints(data) do
+    Enum.map(data, fn {k,v} ->
+      case Integer.parse(v) do
+        { num, _ } -> %{ k => num }
+        _ -> %{ k => :error }
       end
+    end) |> Enum.reduce fn x,acc -> x ||| acc end
+  end
+
+  def map_to_date(data) do
+    Enum.map(data, fn {k,v} ->
+      case DateTime.from_iso8601(v) do
+        { :ok, date, _ } -> %{ k => trunc(DateTime.diff(DateTime.utc_now(), date)/60/60/24) }
+        _ -> %{ k => :error }
+      end
+    end) |> Enum.reduce fn x,acc -> x ||| acc end
+  end
+
+  def cut_stars(txt) do
+    stars = Regex.named_captures(~r/aria-label=\"(?<stars>\d+) users starred this repository/, txt)
+    watch = Regex.named_captures(~r/aria-label=\"(?<watch>\d+) users are watching this repository/, txt)
+    fork  = Regex.named_captures(~r/aria-label=\"(?<fork>\d+) users forked this repository/, txt)
+    ldate = Regex.named_captures(~r/dateModified\"><relative-time datetime=\"(?<ldate>.+)\"/, txt) 
+    map_to_ints(stars ||| watch ||| fork) ||| map_to_date(ldate)
   end
 
   def add_stars(data) do
     Enum.map(data, fn elem ->
       IO.puts "--------"
-      IO.inspect elem
-      ret = case get_list(elem["url"]) do
-        {:ok, data} -> data
+      ret = case HTTPoison.get(elem["url"], [], follow_redirect: true) do
+        {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> cut_stars(body)
         _ -> []
       end
-      #Map.merge(elem, %{:dbg => "true"})
+      IO.inspect(ret)
+      elem ||| ret
     end)
   end
 
   def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-        res = md_parse(String.split(body, "\n"), []) |> clean_up |> add_stars
+        res = md_parse(String.split(body, "\n"), []) 
+              |> clean_up 
+              |> Enum.take(2)
+              |> add_stars
         IO.inspect res
         {:ok, res}
       {:ok, %HTTPoison.Response{status_code: 404}} ->
