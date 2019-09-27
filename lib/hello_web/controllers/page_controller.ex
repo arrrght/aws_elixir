@@ -1,6 +1,7 @@
 defmodule HelloWeb.PageController do
   use HelloWeb, :controller
-  def a ||| b, do: Map.merge(a, b) # le bayan
+  # le bayan
+  def a  ||| b, do: Map.merge(a || %{}, b || %{})
 
   def md_parse([], res), do: res
   def md_parse([str|rest], arr) do
@@ -25,35 +26,38 @@ defmodule HelloWeb.PageController do
     end
   end
 
-  def map_to_ints(data) do
+  def map_to_int(data) do
     Enum.map(data, fn {k,v} ->
       case Integer.parse(v) do
         { num, _ } -> %{ k => num }
         _ -> %{ k => :error }
       end
-    end) |> Enum.reduce fn x,acc -> x ||| acc end
+    end) |> Enum.reduce (fn x,acc -> x ||| acc end)
   end
 
-  def map_to_date(data) do
+  def map_to_days_past(nil), do: %{}
+  def map_to_days_past(data) do
+    IO.inspect data
     Enum.map(data, fn {k,v} ->
       case DateTime.from_iso8601(v) do
         { :ok, date, _ } -> %{ k => trunc(DateTime.diff(DateTime.utc_now(), date)/60/60/24) }
         _ -> %{ k => :error }
       end
-    end) |> Enum.reduce fn x,acc -> x ||| acc end
+    end) |> Enum.reduce(fn x,acc -> x ||| acc end)
   end
 
   def cut_stars(txt) do
-    stars = Regex.named_captures(~r/aria-label=\"(?<stars>\d+) users starred this repository/, txt)
-    watch = Regex.named_captures(~r/aria-label=\"(?<watch>\d+) users are watching this repository/, txt)
-    fork  = Regex.named_captures(~r/aria-label=\"(?<fork>\d+) users forked this repository/, txt)
-    ldate = Regex.named_captures(~r/dateModified\"><relative-time datetime=\"(?<ldate>.+)\"/, txt) 
-    map_to_ints(stars ||| watch ||| fork) ||| map_to_date(ldate)
+    stars = Regex.named_captures(~r/aria-label=\"(?<stars>\d+) user.+starred this repository/, txt)
+    watch = Regex.named_captures(~r/aria-label=\"(?<watch>\d+) user.+ watching this repository/, txt)
+    fork  = Regex.named_captures(~r/aria-label=\"(?<fork>\d+) user.+ forked this repository/, txt)
+    days  = Regex.named_captures(~r/dateModified\"><relative-time datetime=\"(?<days>.+)\"/, txt) 
+    map_to_int(stars ||| watch ||| fork) ||| map_to_days_past(days)
   end
 
   def add_stars(data) do
     Enum.map(data, fn elem ->
       IO.puts "--------"
+      IO.puts elem["url"]
       ret = case HTTPoison.get(elem["url"], [], follow_redirect: true) do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> cut_stars(body)
         _ -> []
@@ -68,7 +72,7 @@ defmodule HelloWeb.PageController do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         res = md_parse(String.split(body, "\n"), []) 
               |> clean_up 
-              |> Enum.take(2)
+              |> Enum.take(5)
               |> add_stars
         IO.inspect res
         {:ok, res}
