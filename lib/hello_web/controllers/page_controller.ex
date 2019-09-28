@@ -57,8 +57,8 @@ defmodule HelloWeb.PageController do
   def add_stars(data) do
     Enum.map(data, fn elem ->
       IO.puts "--------"
-      IO.puts elem["url"]
-      ret = case HTTPoison.get(elem["url"], [], follow_redirect: true) do
+      IO.inspect elem
+      ret = case HTTPoison.get(elem["real_url"] || elem["url"], [], follow_redirect: true) do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> cut_stars(body)
         _ -> []
       end
@@ -67,12 +67,34 @@ defmodule HelloWeb.PageController do
     end)
   end
 
+  def get_url_from_hexpm(url) do
+    case HTTPoison.get(url, [], follow_redirect: true) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
+        Regex.named_captures(~r/<a href=\"(?<real_url>.+)\" .+[Gg]it[Hh]ub/, body) || %{:unparsable_url => true}
+      _ -> %{}
+    end
+  end
+
+  def get_true_url(data) do
+    Enum.map(data, fn elem ->
+      cond do
+        String.starts_with?(elem["url"], "https://github.com") -> elem 
+        String.starts_with?(elem["url"], "https://hex.pm") -> elem ||| get_url_from_hexpm(elem["url"])
+        true -> elem ||| %{:unparsable_url => true}
+      end
+    end)
+  end
+  
   def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         res = md_parse(String.split(body, "\n"), []) 
               |> clean_up 
-              |> Enum.take(5)
+              #|> Enum.filter(fn x -> !String.starts_with?(x["url"], "https://github.com") end) # debug
+              |> Enum.take(3) # debug cutof
+              |> get_true_url
+              #|> Enum.map(fn x -> if Map.has_key?(x, :unparsable_url) do IO.inspect(x);x else x end end) # debug
+              |> Enum.filter(fn x -> !Map.has_key?(x, :unparsable_url) end)
               |> add_stars
         IO.inspect res
         {:ok, res}
@@ -88,7 +110,7 @@ defmodule HelloWeb.PageController do
 
   def curl(conn, _params) do
     {ans, body} = get_list()
-    render(conn, "index.html")
+    render(conn, "curl.html", data: body)
     #redirect(conn, to: "/")
   end
 
