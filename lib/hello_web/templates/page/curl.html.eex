@@ -1,8 +1,12 @@
-<section class="phx-hero">
+<ul>
 <%= for k <- @data do %>
-  <%= k["desc"] %><br />
+  <li>
+  <a href="<%= k["url"] %>"><%= k["desc"] %></a>
+  <div class="stats-stars"><%= k["stars"] %>⭐ </div>
+  <div class="stats-days"><%= k["days"] %>📅 </div>
+  </li>
 <% end %>
-</section>
+</ul>
 
 <section class="row">
   <article class="column">

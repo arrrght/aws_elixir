@@ -1,5 +1,7 @@
 defmodule HelloWeb.PageController do
   use HelloWeb, :controller
+  alias Hello.{Repo, Rep}
+
   # le bayan
   def a  ||| b, do: Map.merge(a || %{}, b || %{})
 
@@ -8,7 +10,7 @@ defmodule HelloWeb.PageController do
     result = cond do
       Regex.match?(~r/^##.+/, str)    -> Regex.named_captures(~r/^## (?<grp_name>.+$)/, str)
       Regex.match?(~r/^\*.+\*$/, str) -> Regex.named_captures(~r/^\*(?<grp_desc>.+\*$)/, str)
-      Regex.match?(~r/^\* \[/, str)   -> Regex.named_captures(~r/^\* \[(?<rep>.+)\]\((?<url>.+)\) - (?<desc>.+$)/, str)
+      Regex.match?(~r/^\* \[/, str)   -> Regex.named_captures(~r/^\* \[(?<name>.+)\]\((?<url>.+)\) - (?<desc>.+$)/, str)
       true -> %{}
     end
     md_parse(rest, [result | arr])
@@ -32,7 +34,7 @@ defmodule HelloWeb.PageController do
         { num, _ } -> %{ k => num }
         _ -> %{ k => :error }
       end
-    end) |> Enum.reduce (fn x,acc -> x ||| acc end)
+    end) |> Enum.reduce(fn x,acc -> x ||| acc end)
   end
 
   def map_to_days_past(nil), do: %{}
@@ -85,17 +87,27 @@ defmodule HelloWeb.PageController do
     end)
   end
   
+  def make_persists(data) do
+    Repo.delete_all(Rep)
+    Enum.each(data, fn x -> 
+      Repo.insert(%Rep{name: x["name"], desc: x["desc"], stars: x["stars"],
+        days: x["days"], url: x["url"], grp_name: x["grp_name"], grp_desc: x["grp_desc"]})
+    end)
+    data
+  end
+
   def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         res = md_parse(String.split(body, "\n"), []) 
               |> clean_up 
               #|> Enum.filter(fn x -> !String.starts_with?(x["url"], "https://github.com") end) # debug
-              |> Enum.take(3) # debug cutof
+              |> Enum.take(12) # debug cutof
               |> get_true_url
               #|> Enum.map(fn x -> if Map.has_key?(x, :unparsable_url) do IO.inspect(x);x else x end end) # debug
               |> Enum.filter(fn x -> !Map.has_key?(x, :unparsable_url) end)
               |> add_stars
+              |> make_persists
         IO.inspect res
         {:ok, res}
       {:ok, %HTTPoison.Response{status_code: 404}} ->
@@ -109,7 +121,7 @@ defmodule HelloWeb.PageController do
   end
 
   def curl(conn, _params) do
-    {ans, body} = get_list()
+    {_ans, body} = get_list()
     render(conn, "curl.html", data: body)
     #redirect(conn, to: "/")
   end
