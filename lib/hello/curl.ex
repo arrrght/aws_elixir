@@ -8,7 +8,7 @@ defmodule Hello.Curl do
   def md_parse([str|rest], arr) do
     result = cond do
       Regex.match?(~r/^##.+/, str)    -> Regex.named_captures(~r/^## (?<grp_name>.+$)/, str)
-      Regex.match?(~r/^\*.+\*$/, str) -> Regex.named_captures(~r/^\*(?<grp_desc>.+\*$)/, str)
+      Regex.match?(~r/^\*.+\*$/, str) -> Regex.named_captures(~r/^\*(?<grp_desc>.+)\*$/, str)
       Regex.match?(~r/^\* \[/, str)   -> Regex.named_captures(~r/^\* \[(?<name>.+)\]\((?<url>.+)\) - (?<desc>.+$)/, str)
       true -> %{}
     end
@@ -20,7 +20,6 @@ defmodule Hello.Curl do
   def clean_up([h|t], some, cur) when h == %{}, do: clean_up(t, some, cur)
   def clean_up([head|tail], res, cur) do
     if Map.has_key?(head, "grp_name") || Map.has_key?(head, "grp_desc") do
-      IO.inspect head
       clean_up(tail, res, cur ||| head)
     else
       clean_up(tail, [cur ||| head | res], cur)
@@ -104,33 +103,28 @@ defmodule Hello.Curl do
     data
   end
 
-  def get_it_back(stars \\ 0) do
-    r = from( r in Rep, where: r.stars > 0)
-    Repo.all(r)
-  end
-
   def get_it_back2(stars \\ 0) do
-    groups = from(r in Rep, where: r.stars > ^stars, select: %{grp_name: r.grp_name, grp_desc: r.grp_desc}, distinct: true, order_by: r.grp_name)
+    groups = from(r in Rep, where: r.stars > ^stars, where: not is_nil(r.grp_name), select: %{grp_name: r.grp_name, grp_desc: r.grp_desc}, distinct: true, order_by: r.grp_name)
     Enum.map(Repo.all(groups), fn x -> 
       q = from(r in Rep, where: r.stars > ^stars, where: r.grp_name == ^x.grp_name)
       x ||| %{ :items => Repo.all(q) }
     end)
   end
 
-  def get_list(stars \\ 0, url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
+  def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         md_parse(String.split(body, "\n"), []) 
               |> clean_up 
               #|> Enum.filter(fn x -> !String.starts_with?(x["url"], "https://github.com") end) # debug
-              |> Enum.shuffle
-              |> Enum.take(12) # debug cutof
+              #|> Enum.shuffle # debug
+              #|> Enum.take(12) # debug cutof
               |> get_true_url
               #|> Enum.map(fn x -> if Map.has_key?(x, :unparsable_url) do IO.inspect(x);x else x end end) # debug
               |> Enum.filter(fn x -> !Map.has_key?(x, :unparsable_url) end)
               |> add_stars
               |> make_persists
-        res = get_it_back(stars)
+        res = get_it_back2()
         IO.inspect res
         {:ok, res}
       {:ok, %HTTPoison.Response{status_code: 404}} ->

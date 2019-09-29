@@ -10,7 +10,7 @@ defmodule HelloWeb.PageController do
     #redirect(conn, to: "/")
   end
 
-  def index(conn, %{"stars" => stars }) do
+  def index(conn, %{"min_stars" => stars }) do
     data = Curl.get_it_back2(stars)
     render(conn, "index.html", data: data)
   end
