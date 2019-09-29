@@ -1,9 +1,9 @@
 <ul>
 <%= for k <- @data do %>
   <li>
-  <a href="<%= k["url"] %>"><%= k["desc"] %></a>
-  <div class="stats-stars"><%= k["stars"] %>⭐ </div>
-  <div class="stats-days"><%= k["days"] %>📅 </div>
+  <a href="<%= k.url %>"><%= k.desc %></a>
+  <div class="stats-stars"><%= k.stars %>⭐ </div>
+  <div class="stats-days"><%= k.days %>📅 </div>
   </li>
 <% end %>
 </ul>

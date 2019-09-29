@@ -1,35 +1,21 @@
-<section class="phx-hero">
-  <h1><%= gettext "Welcome to %{name}!", name: "Phoenix" %></h1>
-  <p>A productive web framework that<br/>does not compromise speed or maintainability.</p>
-</section>
+<h2>Contens</h2>
+<ul>
+<%= for k <- @data do %>
+  <li><a href="#<%= k.grp_name %>"><%= k.grp_desc %></a></li>
+<% end %>
+</ul>
 
-<section class="row">
-  <article class="column">
-    <h2>Resources</h2>
-    <ul>
-      <li>
-        <a href="https://hexdocs.pm/phoenix/overview.html">Guides &amp; Docs</a>
-      </li>
-      <li>
-        <a href="https://github.com/phoenixframework/phoenix">Source</a>
-      </li>
-      <li>
-        <a href="https://github.com/phoenixframework/phoenix/blob/v1.4/CHANGELOG.md">v1.4 Changelog</a>
-      </li>
-    </ul>
-  </article>
-  <article class="column">
-    <h2>Help</h2>
-    <ul>
-      <li>
-        <a href="https://elixirforum.com/c/phoenix-forum">Forum</a>
-      </li>
-      <li>
-        <a href="https://webchat.freenode.net/?channels=elixir-lang">#elixir-lang on Freenode IRC</a>
-      </li>
-      <li>
-        <a href="https://twitter.com/elixirphoenix">Twitter @elixirphoenix</a>
-      </li>
-    </ul>
-  </article>
-</section>
+<ul>
+<%= for k <- @data do %>
+  <h2 id="<%= k.grp_name %>"><%= k.grp_name %></h2>
+  <p><%= k.grp_desc %></p>
+  <ul>
+  <%= for i <- k.items do %>
+  <li>
+    <a href="<%= i.url %>"><%= i.desc %></a>
+    <div class="stats-stars">⭐ <%= i.stars %></div>
+    <div class="stats-days"><%= i.days %> 📅 </div>
+  </li>
+  <% end %>
+  </ul>
+<% end %>
