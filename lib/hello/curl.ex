@@ -2,8 +2,13 @@ defmodule Hello.Curl do
   import Ecto.Query
   alias Hello.{Repo, Rep}
 
+  @doc "Функция для сокращения написания Map.merge"
   def a  ||| b, do: Map.merge(a || %{}, b || %{}) # le bayan
 
+  @doc """
+    Парсит документ на предмет заголовков, описания заголовков, имен и url проектов
+    Работает построково, только парсинг по порядку
+  """
   def md_parse([], res), do: Enum.reverse res
   def md_parse([str|rest], arr) do
     result = cond do
@@ -15,6 +20,10 @@ defmodule Hello.Curl do
     md_parse(rest, [result | arr])
   end
     
+  @doc """
+    Приборка после функции md_parse, идет по порядку добавляет к каждой записи группу
+    Удаляет пустые / не нужные уже записи(типа заголовков групп)
+  """
   def clean_up(some), do: clean_up(some, [], %{})
   def clean_up([], some, _), do: some
   def clean_up([h|t], some, cur) when h == %{}, do: clean_up(t, some, cur)
@@ -26,6 +35,9 @@ defmodule Hello.Curl do
     end
   end
 
+  @doc """
+    Преобразует все записи String -> Int
+  """
   def map_to_int(data) do
     Enum.map(data, fn {k,v} ->
       case Integer.parse(v) do
@@ -35,6 +47,11 @@ defmodule Hello.Curl do
     end) |> Enum.reduce(fn x,acc -> x ||| acc end)
   end
 
+  @doc """
+    Преобразует все записи Map в число от текущей даты 
+    - если в будущем,
+    :error - если не удалось преобразовать
+  """
   def map_to_days_past(nil), do: %{}
   def map_to_days_past(data) do
     Enum.map(data, fn {k,v} ->
@@ -45,44 +62,61 @@ defmodule Hello.Curl do
     end) |> Enum.reduce(fn x,acc -> x ||| acc end)
   end
 
+  @doc """
+    Вырезает из текста stars, watch, fork, дни как текст и отдает через приведение к чистлу каждый
+  """
   def cut_stars(txt) do
     stars = Regex.named_captures(~r/aria-label=\"(?<stars>\d+) user.+starred this repository/, txt)
     watch = Regex.named_captures(~r/aria-label=\"(?<watch>\d+) user.+ watching this repository/, txt)
     fork  = Regex.named_captures(~r/aria-label=\"(?<fork>\d+) user.+ forked this repository/, txt)
     days  = Regex.named_captures(~r/dateModified\"><relative-time datetime=\"(?<days>\S+)\"/, txt) 
-    IO.inspect days
+    #IO.inspect map_to_int(stars ||| watch ||| fork)
     map_to_int(stars ||| watch ||| fork) ||| map_to_days_past(days)
   end
 
-  # thx, s/o
-  #def pmap(collection, func) do
-  #  collection
-  #    |> Enum.map(&(Task.async(fn -> func.(&1) end)))
-  #    |> Enum.map(&Task.await(10000))
-  #end
+  @doc """
+    thx, s/o
+    TODO Попытка параллельного сбора, нужно работать
+  """
+  def pmap(collection, func) do
+    collection
+      |> Enum.map(&(Task.async(fn -> func.(&1) end)))
+      |> Enum.map(&Task.await(10000))
+  end
 
+
+  @doc """
+    Тащит текст по ссылке, парсит звезды, добавлет к записи
+  """
   def add_stars(data) do
     Enum.map(data, fn elem ->
     #pmap(data, fn elem ->
-      IO.puts "--------"
-      IO.inspect elem
       ret = case HTTPoison.get(elem["real_url"] || elem["url"], [], follow_redirect: true) do
         {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> cut_stars(body)
         _ -> %{}
       end
-      IO.inspect(ret)
       elem ||| ret
     end)
   end
 
+  @doc """
+    Пытается вытащить ссылку из hexpm на github.com
+  """
   def get_url_from_hexpm(url) do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
-        Regex.named_captures(~r/<a href=\"(?<real_url>.+)\" .+[Gg]it[Hh]ub/, body) || %{:unparsable_url => true}
+        ret = Regex.named_captures(~r/<a href=\"(?<real_url>.+)\" .+[Gg]it[Hh]ub/, body) 
+        if (ret["real_url"] && String.starts_with?(ret["real_url"], "https://github.com/")), do: ret, else: %{}
       _ -> %{}
     end
   end
 
+  @doc """
+    Проверка на ссылки, где можно вытащить звезды
+    hex.pm - парсим
+    github - отдаем сразу
+    другое - выставляем флаг :unparsable_url
+  """
   def get_true_url(data) do
     Enum.map(data, fn elem ->
       cond do
@@ -93,6 +127,10 @@ defmodule Hello.Curl do
     end)
   end
   
+  @doc """
+    Запись в базу отпарсеннх значений (предвараительно удалив старые)
+    TODO #dolikeburatino Сделано неверно Порождает тонны sql
+  """
   def make_persists(data) do
     Repo.delete_all(Rep)
     Enum.each(data, fn x -> 
@@ -102,6 +140,10 @@ defmodule Hello.Curl do
     data
   end
 
+  @doc """
+    Вытаскивает из базы сначала группы, затем записи по каждой группе
+    TODO #dolikeburatino Сделано неверно Порождает тонны sql
+  """
   def get_it_back2(stars \\ 0) do
     groups = from(r in Rep, where: r.stars > ^stars, where: not is_nil(r.grp_name), select: %{grp_name: r.grp_name, grp_desc: r.grp_desc}, distinct: true, order_by: r.grp_name)
     Enum.map(Repo.all(groups), fn x -> 
@@ -110,6 +152,10 @@ defmodule Hello.Curl do
     end)
   end
 
+  @doc """
+    Основная функция - тащит README из elixir-awesome-list, пргоняет через все вспомогательные функции
+    Отвечает :ok / :err в зависимости от от результата
+  """
   def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
