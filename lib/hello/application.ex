@@ -11,7 +11,8 @@ defmodule Hello.Application do
       # Start the Ecto repository
       Hello.Repo,
       # Start the endpoint when the application starts
-      HelloWeb.Endpoint
+      HelloWeb.Endpoint,
+      { Hello.Periodically, [] }
       # Starts a worker by calling: Hello.Worker.start_link(arg)
       # {Hello.Worker, arg},
     ]

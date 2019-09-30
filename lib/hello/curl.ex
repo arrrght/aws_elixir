@@ -81,7 +81,7 @@ defmodule Hello.Curl do
   def pmap(collection, func) do
     collection
       |> Enum.map(&(Task.async(fn -> func.(&1) end)))
-      |> Enum.map(&Task.await(10000))
+      |> Enum.map(&Task.await/1)
   end
 
 
