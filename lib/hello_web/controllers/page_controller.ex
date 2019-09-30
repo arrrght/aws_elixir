@@ -1,8 +1,6 @@
 defmodule HelloWeb.PageController do
   use HelloWeb, :controller
-  import Ecto.Query
-  alias Hello.{Repo, Rep, Curl}
-
+  alias Hello.Curl
 
   def curl(conn, _params) do
     {_ans, body} = Curl.get_list()

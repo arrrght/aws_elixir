@@ -4,7 +4,7 @@ defmodule Hello.Curl do
 
   def a  ||| b, do: Map.merge(a || %{}, b || %{}) # le bayan
 
-  def md_parse([], res), do: res
+  def md_parse([], res), do: Enum.reverse res
   def md_parse([str|rest], arr) do
     result = cond do
       Regex.match?(~r/^##.+/, str)    -> Regex.named_captures(~r/^## (?<grp_name>.+$)/, str)
@@ -37,7 +37,6 @@ defmodule Hello.Curl do
 
   def map_to_days_past(nil), do: %{}
   def map_to_days_past(data) do
-    IO.inspect data
     Enum.map(data, fn {k,v} ->
       case DateTime.from_iso8601(v) do
         { :ok, date, _ } -> %{ k => trunc(DateTime.diff(DateTime.utc_now(), date)/60/60/24) }

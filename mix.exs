@@ -44,7 +44,8 @@ defmodule Hello.MixProject do
       {:jason, "~> 1.0"},
       {:plug_cowboy, "~> 2.0"},
       {:hackney, github: "benoitc/hackney", override: true},
-      {:httpoison, "~> 1.5.1"}
+      {:httpoison, "~> 1.5.1"},
+      {:mix_test_watch, "~> 0.8", only: :dev, runtime: false}
     ]
   end
 
