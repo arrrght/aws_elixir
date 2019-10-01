@@ -1,6 +1,7 @@
 defmodule Hello.Curl do
   import Ecto.Query
   alias Hello.{Repo, Rep}
+  #use Task, restart: :transient
 
   @doc "Функция для сокращения написания Map.merge"
   def a ||| b, do: Map.merge(a || %{}, b || %{}) # le bayan
@@ -85,11 +86,18 @@ defmodule Hello.Curl do
   end
 
   @doc """
-    Обходит массив одновременно по N записей
+    Функция обхода записей
   """
   def pmap_add_stars(data) do
+    Enum.map(data, fn x -> proc(x) end)
+  end
+
+  @doc """
+    Обходит массив одновременно по N записей
+  """
+  def pmap_add_stars2(data) do
     data
-    |> Task.async_stream(&proc/1, [max_concurency: 2]) 
+    |> Task.async_stream(&proc/1, [max_concurency: 20, ordered: false, timeout: 10000]) 
       |> Enum.to_list()
       |> Enum.reduce([], fn x, acc -> case x do 
           {:ok, some} -> [some|acc]
