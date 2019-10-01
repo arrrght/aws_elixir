@@ -1,12 +1,16 @@
 defmodule Hello.Periodically do
   # Stealed from https://stackoverflow.com/questions/32085258/how-can-i-schedule-code-to-run-every-few-hours-in-elixir-or-phoenix-framework
   use GenServer
+  import Ecto.Query
 
   def start_link(_some) do
     GenServer.start_link(__MODULE__, %{})
   end
 
   def init(state) do
+    if Hello.Repo.one(from p in Hello.Rep, select: count(p.id)) == 0 do
+      Hello.Curl.get_list()
+    end
     schedule_work() # Schedule work to be performed at some point
     {:ok, state}
   end

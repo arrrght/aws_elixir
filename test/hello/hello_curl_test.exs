@@ -46,7 +46,7 @@ defmodule Hello.CurlTest do
     assert ret["stars"] == 1231
     assert ret["watch"] == 74
     assert ret["fork"] == 298
-    assert ret["days"] == 359
+    assert ret["days"] > 359
     case HTTPoison.get("https://github.com/dalmatinerdb/dflow", [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         ret = cut_stars(body)
@@ -58,7 +58,7 @@ defmodule Hello.CurlTest do
     end
   end
 
-  test "add_stars" do
+  test "pmap_add_stars" do
     a = [ %{
       "url" => "https://github.com/dalmatinerdb/dflow",
       "name" => "dflow",
@@ -66,7 +66,7 @@ defmodule Hello.CurlTest do
       "grp_desc" => "Group_desc",
       "grp_name" => "Actors"
     }]
-    ret = add_stars(a)
+    ret = pmap_add_stars(a)
     assert length(ret) > 0
     assert List.first(ret)["name"] == "dflow"
     assert List.first(ret)["stars"] > 0

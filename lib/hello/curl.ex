@@ -3,7 +3,7 @@ defmodule Hello.Curl do
   alias Hello.{Repo, Rep}
 
   @doc "Функция для сокращения написания Map.merge"
-  def a  ||| b, do: Map.merge(a || %{}, b || %{}) # le bayan
+  def a ||| b, do: Map.merge(a || %{}, b || %{}) # le bayan
 
   @doc """
     Парсит документ на предмет заголовков, описания заголовков, имен и url проектов
@@ -75,28 +75,26 @@ defmodule Hello.Curl do
   end
 
   @doc """
-    thx, s/o
-    TODO Попытка параллельного сбора, нужно работать
-  """
-  def pmap(collection, func) do
-    collection
-      |> Enum.map(&(Task.async(fn -> func.(&1) end)))
-      |> Enum.map(&Task.await/1)
-  end
-
-
-  @doc """
     Тащит текст по ссылке, парсит звезды, добавлет к записи
   """
-  def add_stars(data) do
-    Enum.map(data, fn elem ->
-    #pmap(data, fn elem ->
-      ret = case HTTPoison.get(elem["real_url"] || elem["url"], [], follow_redirect: true) do
-        {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> cut_stars(body)
-        _ -> %{}
-      end
-      elem ||| ret
-    end)
+  def proc(elem) do
+    elem ||| case HTTPoison.get(elem["real_url"] || elem["url"], [], follow_redirect: true) do
+      {:ok, %HTTPoison.Response{status_code: 200, body: body}} -> IO.write "."; Hello.Curl.cut_stars(body)
+      _ -> %{}
+    end
+  end
+
+  @doc """
+    Обходит массив одновременно по N записей
+  """
+  def pmap_add_stars(data) do
+    data
+    |> Task.async_stream(&proc/1, [max_concurency: 2]) 
+      |> Enum.to_list()
+      |> Enum.reduce([], fn x, acc -> case x do 
+          {:ok, some} -> [some|acc]
+          _ -> acc
+        end end)
   end
 
   @doc """
@@ -128,7 +126,7 @@ defmodule Hello.Curl do
   end
   
   @doc """
-    Запись в базу отпарсеннх значений (предвараительно удалив старые)
+    Запись в базу отпарсенных значений (предвараительно удалив старые)
     TODO #dolikeburatino Сделано неверно Порождает тонны sql
   """
   def make_persists(data) do
@@ -154,7 +152,7 @@ defmodule Hello.Curl do
 
   @doc """
     Основная функция - тащит README из elixir-awesome-list, пргоняет через все вспомогательные функции
-    Отвечает :ok / :err в зависимости от от результата
+    Отвечает :ok / :error в зависимости от от результата
   """
   def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
@@ -167,11 +165,9 @@ defmodule Hello.Curl do
               |> get_true_url
               #|> Enum.map(fn x -> if Map.has_key?(x, :unparsable_url) do IO.inspect(x);x else x end end) # debug
               |> Enum.filter(fn x -> !Map.has_key?(x, :unparsable_url) end)
-              |> add_stars
+              |> pmap_add_stars
               |> make_persists
-        res = get_it_back2()
-        IO.inspect res
-        {:ok, res}
+        {:ok}
       {:ok, %HTTPoison.Response{status_code: 404}} ->
         IO.puts "404"
         {:error, "404"}
