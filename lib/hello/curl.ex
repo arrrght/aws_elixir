@@ -39,6 +39,7 @@ defmodule Hello.Curl do
   @doc """
     Преобразует все записи String -> Int
   """
+  def map_to_int(nil), do:  %{}
   def map_to_int(data) do
     Enum.map(data, fn {k,v} ->
       case Integer.parse(v) do
@@ -71,8 +72,13 @@ defmodule Hello.Curl do
     watch = Regex.named_captures(~r/aria-label=\"(?<watch>\d+) user.+ watching this repository/, txt)
     fork  = Regex.named_captures(~r/aria-label=\"(?<fork>\d+) user.+ forked this repository/, txt)
     days  = Regex.named_captures(~r/dateModified\"><relative-time datetime=\"(?<days>\S+)\"/, txt) 
-    #IO.inspect map_to_int(stars ||| watch ||| fork)
-    map_to_int(stars ||| watch ||| fork) ||| map_to_days_past(days)
+    IO.inspect(stars)
+    IO.inspect(watch)
+    IO.inspect(fork)
+    IO.inspect(days)
+
+    #IO.inspect map_to_int(%{} ||| stars ||| watch ||| fork)
+    map_to_int(%{:some => "123"} ||| stars ||| watch ||| fork) ||| map_to_days_past(days)
   end
 
   @doc """
@@ -97,12 +103,15 @@ defmodule Hello.Curl do
   """
   def pmap_add_stars2(data) do
     data
-    |> Task.async_stream(&proc/1, [max_concurency: 20, ordered: false, timeout: 10000]) 
-      |> Enum.to_list()
-      |> Enum.reduce([], fn x, acc -> case x do 
-          {:ok, some} -> [some|acc]
-          _ -> acc
-        end end)
+      #|> Task.async_stream(&proc/1) 
+      |> Task.async_stream(&proc/1, [max_concurency: 20, ordered: false, timeout: 10000, on_timeout: :kill_task]) 
+      #|> Task.async_stream(Processor, :proc, [], max_concurency: 20) 
+      |> Enum.map(fn({:ok, res}) -> res end)
+      #|> Enum.to_list()
+      #|> Enum.reduce([], fn x, acc -> case x do 
+      #    {:ok, some} -> [some|acc]
+      #    _ -> acc
+      #  end end)
   end
 
   @doc """

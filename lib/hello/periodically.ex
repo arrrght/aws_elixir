@@ -9,7 +9,7 @@ defmodule Hello.Periodically do
 
   def init(state) do
     if Hello.Repo.one(from p in Hello.Rep, select: count(p.id)) == 0 do
-      Hello.Curl.get_list()
+      #Hello.Curl.get_list()
     end
     schedule_work() # Schedule work to be performed at some point
     {:ok, state}
