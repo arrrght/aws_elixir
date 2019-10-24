@@ -1,6 +1,6 @@
 defmodule Hello.Curl do
   import Ecto.Query
-  alias Hello.{Repo, Rep}
+  alias Hello.{Repo, Rep, Parallel}
   #use Task, restart: :transient
 
   @doc "Функция для сокращения написания Map.merge"
@@ -95,7 +95,8 @@ defmodule Hello.Curl do
     Функция обхода записей
   """
   def pmap_add_stars(data) do
-    Enum.map(data, fn x -> proc(x) end)
+    #Parallel.run(4, fn x -> proc(x) end)
+    #Enum.map(data, fn x -> proc(x) end)
   end
 
   @doc """
@@ -172,6 +173,7 @@ defmodule Hello.Curl do
     Отвечает :ok / :error в зависимости от от результата
   """
   def get_list(url \\ "https://raw.githubusercontent.com/h4cc/awesome-elixir/master/README.md") do
+  #def get_list(url \\ "https://raw.githubusercontent.com/rust-unofficial/awesome-rust/master/README.md") do
     case HTTPoison.get(url, [], follow_redirect: true) do
       {:ok, %HTTPoison.Response{status_code: 200, body: body}} ->
         md_parse(String.split(body, "\n"), []) 
@@ -182,7 +184,8 @@ defmodule Hello.Curl do
               |> get_true_url
               #|> Enum.map(fn x -> if Map.has_key?(x, :unparsable_url) do IO.inspect(x);x else x end end) # debug
               |> Enum.filter(fn x -> !Map.has_key?(x, :unparsable_url) end)
-              |> pmap_add_stars
+              |> Parallel.run(25, fn x -> proc(x) end)
+              #|> pmap_add_stars
               |> make_persists
         {:ok}
       {:ok, %HTTPoison.Response{status_code: 404}} ->
