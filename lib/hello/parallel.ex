@@ -1,16 +1,12 @@
 defmodule Hello.Parallel do
 
   # --------------------- Api ---------------------
-  def run(col, workers, fun) do
-    run(col, fun, workers, 0, [])
-  end
-
+  def run(col, workers, fun), do: run(col, fun, workers, 0, [])
+  
   # --------------------- Priv ---------------------
   defp run([h|t], fun, workers, n, res) when n < workers do
     me = self()
-
-    IO.puts "total: #{n + 1}"
-
+    #IO.puts "total: #{n + 1}"
     spawn_link fn ->
       send me, {h, fun.(h)}
     end
@@ -23,9 +19,7 @@ defmodule Hello.Parallel do
     end
   end
 
-  defp run([], _fun, _workers, _n, res) do
-    res
-  end
+  defp run([], _fun, _workers, _n, res), do: res
 
   defp run(col, fun, workers, n, res) do
     receive do

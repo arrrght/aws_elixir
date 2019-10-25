@@ -72,10 +72,10 @@ defmodule Hello.Curl do
     watch = Regex.named_captures(~r/aria-label=\"(?<watch>\d+) user.+ watching this repository/, txt)
     fork  = Regex.named_captures(~r/aria-label=\"(?<fork>\d+) user.+ forked this repository/, txt)
     days  = Regex.named_captures(~r/dateModified\"><relative-time datetime=\"(?<days>\S+)\"/, txt) 
-    IO.inspect(stars)
-    IO.inspect(watch)
-    IO.inspect(fork)
-    IO.inspect(days)
+    #IO.inspect(stars)
+    #IO.inspect(watch)
+    #IO.inspect(fork)
+    #IO.inspect(days)
 
     #IO.inspect map_to_int(%{} ||| stars ||| watch ||| fork)
     map_to_int(%{:some => "123"} ||| stars ||| watch ||| fork) ||| map_to_days_past(days)
@@ -94,9 +94,12 @@ defmodule Hello.Curl do
   @doc """
     Функция обхода записей
   """
-  def pmap_add_stars(data) do
-    #Parallel.run(4, fn x -> proc(x) end)
-    #Enum.map(data, fn x -> proc(x) end)
+ def pmap_add_stars(data) do
+    #Parallel.run(data, 25, fn x -> Enum.map(x, fn y -> proc(y) end) end)
+    #data |> Parallel.run(25, fn x -> Enum.map(x, fn y -> proc(y) end)end )
+    data 
+    |> Parallel.run(25, fn x -> proc(x) end)
+    #data |> Enum.map(fn y -> proc(y) end)
   end
 
   @doc """
@@ -150,6 +153,8 @@ defmodule Hello.Curl do
   def make_persists(data) do
     Repo.delete_all(Rep)
     Enum.each(data, fn x -> 
+      y = Tuple.to_list(x)
+      x = List.first(y) ||| List.last(y)
       Repo.insert(%Rep{name: x["name"], desc: x["desc"], stars: x["stars"],
         days: x["days"], url: x["url"], grp_name: x["grp_name"], grp_desc: x["grp_desc"]})
     end)
@@ -184,8 +189,10 @@ defmodule Hello.Curl do
               |> get_true_url
               #|> Enum.map(fn x -> if Map.has_key?(x, :unparsable_url) do IO.inspect(x);x else x end end) # debug
               |> Enum.filter(fn x -> !Map.has_key?(x, :unparsable_url) end)
-              |> Parallel.run(25, fn x -> proc(x) end)
+              |> Parallel.run(100, fn x -> proc(x) end)
               #|> pmap_add_stars
+              #|> Parallel.run(25, fn x -> proc(x) end)
+              #|> IO.inspect
               |> make_persists
         {:ok}
       {:ok, %HTTPoison.Response{status_code: 404}} ->
